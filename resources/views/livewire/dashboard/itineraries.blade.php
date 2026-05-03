@@ -126,43 +126,46 @@ new class extends Component {
     </div>
 
     <!-- ====== Stat Cards ====== -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="col-span-2 md:col-span-1 bg-gradient-to-br from-indigo-600 to-indigo-500 p-6 rounded-3xl text-white shadow-lg shadow-indigo-200/60">
-            <p class="text-indigo-200 text-xs font-bold uppercase tracking-widest">Total Perjalanan</p>
-            <p class="text-4xl font-black mt-1">{{ $stats['total'] }}</p>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div class="bg-gradient-to-br from-indigo-600 to-indigo-500 p-5 md:p-6 rounded-3xl text-white shadow-lg shadow-indigo-200/60">
+            <p class="text-indigo-200 text-[10px] md:text-xs font-bold uppercase tracking-widest">Total Trip</p>
+            <p class="text-3xl md:text-4xl font-black mt-1">{{ $stats['total'] }}</p>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-            <p class="text-gray-400 text-xs font-bold uppercase tracking-widest">Terjadwal</p>
-            <p class="text-4xl font-black text-emerald-600 mt-1">{{ $stats['planned'] }}</p>
+        <div class="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+            <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Planned</p>
+            <p class="text-3xl md:text-4xl font-black text-emerald-600 mt-1">{{ $stats['planned'] }}</p>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-            <p class="text-gray-400 text-xs font-bold uppercase tracking-widest">Dialihkan</p>
-            <p class="text-4xl font-black text-amber-500 mt-1">{{ $stats['changed'] }}</p>
+        <div class="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+            <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Adjusted</p>
+            <p class="text-3xl md:text-4xl font-black text-amber-500 mt-1">{{ $stats['changed'] }}</p>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col justify-between">
-            <p class="text-gray-400 text-xs font-bold uppercase tracking-widest">Cuaca Kota</p>
-            <div class="flex flex-wrap gap-1 mt-2">
-                @foreach($weatherMap as $cityId => $cond)
-                    <span class="text-xs px-2 py-0.5 rounded-full font-bold
-                        {{ $cond === 'rainy' ? 'bg-blue-100 text-blue-700' : ($cond === 'sunny' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600') }}">
-                        {{ $cond === 'rainy' ? '🌧️' : ($cond === 'sunny' ? '☀️' : '⛅') }}
-                        {{ $cond }}
-                    </span>
-                @endforeach
-                @if(empty($weatherMap))
-                    <span class="text-xs text-gray-400">—</span>
-                @endif
+        <div class="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+            <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Progress</p>
+            <div class="mt-3">
+                @php $progress = $stats['total'] > 0 ? (($stats['total'] - $stats['planned']) / $stats['total']) * 100 : 0; @endphp
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-bold text-indigo-600">{{ round($progress) }}%</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-1.5 dark:bg-gray-700">
+                    <div class="bg-indigo-600 h-1.5 rounded-full transition-all duration-1000" style="width: {{ $progress }}%"></div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- ====== Kontrol Halaman ====== -->
     <div class="flex flex-col sm:flex-row gap-3">
-        <button wire:click="loadLogs" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-            Riwayat Perubahan
+        <button wire:click="loadLogs" wire:loading.attr="disabled" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 transition relative group">
+            <span wire:loading.remove wire:target="loadLogs" class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                Riwayat Perubahan
+            </span>
+            <span wire:loading wire:target="loadLogs" class="flex items-center gap-2">
+                <svg class="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Memuat...
+            </span>
         </button>
-        <a href="{{ url('/agent') }}" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-sm font-bold text-white transition">
+        <a href="{{ url('/agent') }}" wire:navigate class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-sm font-bold text-white transition shadow-lg shadow-indigo-200">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
             Jalankan Agent Cuaca
         </a>
@@ -272,15 +275,20 @@ new class extends Component {
                         </div>
 
                         <!-- Status & Aksi -->
-                        <div class="flex items-center gap-3 shrink-0">
-                            @if($isChanged)
-                                <button wire:click="override({{ $itinerary->id }})"
-                                    class="text-xs font-bold text-amber-600 border border-amber-300 px-4 py-2 rounded-xl hover:bg-amber-50 transition">
-                                    ✅ Terima
-                                </button>
-                                <span class="inline-flex items-center px-4 py-2 rounded-xl text-xs font-black bg-amber-500 text-white uppercase tracking-wider">
-                                    🌧️ Dialihkan
-                                </span>
+                            <div class="flex items-center gap-3 shrink-0">
+                                @if($isChanged)
+                                    <button wire:click="override({{ $itinerary->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="override({{ $itinerary->id }})"
+                                        class="text-xs font-bold text-amber-600 border border-amber-300 px-4 py-2 rounded-xl hover:bg-amber-50 transition flex items-center gap-2">
+                                        <span wire:loading.remove wire:target="override({{ $itinerary->id }})">✅ Terima</span>
+                                        <span wire:loading wire:target="override({{ $itinerary->id }})">
+                                            <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        </span>
+                                    </button>
+                                    <span class="inline-flex items-center px-4 py-2 rounded-xl text-xs font-black bg-amber-500 text-white uppercase tracking-wider shadow-lg shadow-amber-200/50">
+                                        🌧️ Dialihkan
+                                    </span>
                             @elseif($isOverridden)
                                 <span class="inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 uppercase tracking-wider">
                                     ✅ Dikonfirmasi

@@ -5,7 +5,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Smart Travel') }}</title>
+        <title>Smart Travel - Weather-Adaptive Trip Orchestration</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,11 +26,11 @@
         </style>
     </head>
     <body class="antialiased text-white bg-auth">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0">
+        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 px-4">
             <div class="mb-8">
-                <a href="/" wire:navigate class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center text-2xl shadow-xl shadow-indigo-500/20">✈️</div>
-                    <span class="font-black text-3xl tracking-tight">Smart<span class="text-indigo-400">Travel</span></span>
+                <a href="/" wire:navigate class="flex items-center gap-4">
+                    <img src="{{ asset('images/logo.png') }}" alt="Smart Travel Logo" class="w-16 h-16 object-contain drop-shadow-2xl">
+                    <span class="font-black text-4xl tracking-tight">Smart<span class="text-indigo-400">Travel</span></span>
                 </a>
             </div>
 

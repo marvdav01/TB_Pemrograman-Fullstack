@@ -6,6 +6,9 @@
     <meta name="description" content="Smart Travel - Platform perjalanan cerdas dengan teknologi Weather-Adaptive Agent yang secara otomatis menyesuaikan jadwal wisata Anda berdasarkan kondisi cuaca real-time.">
     <title>Smart Travel - Weather-Adaptive Trip Orchestration</title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -36,8 +39,10 @@
     <nav class="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#060818]/80 border-b border-white/5">
         <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="w-9 h-9 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center text-lg">✈️</div>
-                <span class="font-black text-xl tracking-tight">Smart<span class="text-indigo-400">Travel</span></span>
+                <a href="/" class="flex items-center gap-3">
+                    <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-10 h-10 object-contain drop-shadow-xl">
+                    <span class="font-black text-xl tracking-tight">Smart<span class="text-indigo-400">Travel</span></span>
+                </a>
             </div>
             <div class="flex items-center gap-3">
                 @if (Route::has('login'))
