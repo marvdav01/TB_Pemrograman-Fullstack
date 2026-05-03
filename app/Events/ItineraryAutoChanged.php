@@ -3,9 +3,7 @@
 namespace App\Events;
 
 use App\Models\Itinerary;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -17,34 +15,28 @@ class ItineraryAutoChanged implements ShouldBroadcast
 
     public $itinerary;
 
-    /**
-     * Create a new event instance.
-     */
     public function __construct(Itinerary $itinerary)
     {
-        $this->itinerary = $itinerary->load('destination');
+        $this->itinerary = $itinerary;
     }
 
-    /**
-     * Get the channels the event should broadcast on.
-     *
-     * @return array<int, \Illuminate\Broadcasting\Channel>
-     */
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('user.'.$this->itinerary->user_id),
+            new PrivateChannel('user.' . $this->itinerary->user_id),
         ];
     }
 
-    /**
-     * Data yang dikirimkan ke frontend.
-     */
     public function broadcastWith(): array
     {
+        $city = $this->itinerary->destination->city->name ?? 'kota Anda';
+        $dest = $this->itinerary->destination->name ?? 'destinasi indoor';
+
         return [
-            'message' => 'Hujan terdeteksi! Jadwal outdoor Anda telah dialihkan ke destinasi indoor otomatis: ' . $this->itinerary->destination->name,
-            'itinerary_id' => $this->itinerary->id,
+            'message'        => "🌧️ Hujan terdeteksi di {$city}! Jadwal outdoor Anda telah dialihkan ke \"{$dest}\" secara otomatis.",
+            'itinerary_id'   => $this->itinerary->id,
+            'new_destination' => $dest,
+            'city'           => $city,
         ];
     }
 }

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Itinerary extends Model
 {
-    protected $fillable = ['user_id', 'destination_id', 'visit_date', 'status'];
+    protected $fillable = ['user_id', 'destination_id', 'visit_date', 'status', 'notes'];
 
     public function user()
     {
@@ -15,6 +15,11 @@ class Itinerary extends Model
 
     public function destination()
     {
-        return $this->belongsTo(Destination::class);
+        return $this->belongsTo(Destination::class)->with('city');
+    }
+
+    public function logs()
+    {
+        return $this->hasMany(ItineraryLog::class);
     }
 }

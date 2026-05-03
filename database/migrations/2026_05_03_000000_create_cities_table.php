@@ -8,21 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('destinations', function (Blueprint $table) {
+        Schema::create('cities', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->foreignId('city_id')->constrained('cities')->onDelete('cascade');
-            $table->enum('type', ['indoor', 'outdoor']);
-            $table->string('category')->default('umum'); // museum, mall, pantai, gunung, dll
+            $table->string('country')->default('Indonesia');
             $table->decimal('latitude', 10, 7)->nullable();
             $table->decimal('longitude', 10, 7)->nullable();
-            $table->text('description')->nullable();
+            $table->string('openweather_city_name')->nullable(); // Nama kota untuk API cuaca
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('destinations');
+        Schema::dropIfExists('cities');
     }
 };
