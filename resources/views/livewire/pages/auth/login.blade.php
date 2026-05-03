@@ -25,47 +25,57 @@ new #[Layout('layouts.guest')] class extends Component
 }; ?>
 
 <div>
+    <div class="mb-8 text-center">
+        <h2 class="text-2xl font-black text-white">Selamat Datang Kembali</h2>
+        <p class="text-white/40 text-sm mt-1">Silakan masuk untuk melanjutkan perjalanan Anda.</p>
+    </div>
+
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    <form wire:submit="login">
+    <form wire:submit="login" class="space-y-6">
         <!-- Email Address -->
         <div>
             <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="form.email" id="email" class="block mt-1 w-full" type="email" name="email" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('form.email')" class="mt-2" />
+            <x-text-input wire:model="form.email" id="email" class="block w-full" type="email" name="email" required autofocus autocomplete="username" placeholder="name@example.com" />
+            <x-input-error :messages="$errors->get('form.email')" class="mt-2 text-rose-400" />
         </div>
 
         <!-- Password -->
-        <div class="mt-4">
+        <div>
             <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input wire:model="form.password" id="password" class="block mt-1 w-full"
+            <x-text-input wire:model="form.password" id="password" class="block w-full"
                             type="password"
                             name="password"
-                            required autocomplete="current-password" />
+                            required autocomplete="current-password"
+                            placeholder="••••••••" />
 
-            <x-input-error :messages="$errors->get('form.password')" class="mt-2" />
+            <x-input-error :messages="$errors->get('form.password')" class="mt-2 text-rose-400" />
         </div>
 
-        <!-- Remember Me -->
-        <div class="block mt-4">
-            <label for="remember" class="inline-flex items-center">
-                <input wire:model="form.remember" id="remember" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
+        <!-- Remember Me & Forgot Password -->
+        <div class="flex items-center justify-between">
+            <label for="remember" class="inline-flex items-center cursor-pointer">
+                <input wire:model="form.remember" id="remember" type="checkbox" class="rounded-lg bg-white/5 border-white/10 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
+                <span class="ms-2 text-sm text-white/50">{{ __('Ingat saya') }}</span>
             </label>
-        </div>
 
-        <div class="flex items-center justify-end mt-4">
             @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('password.request') }}" wire:navigate>
-                    {{ __('Forgot your password?') }}
+                <a class="text-sm text-indigo-400 hover:text-indigo-300 font-bold transition" href="{{ route('password.request') }}" wire:navigate>
+                    {{ __('Lupa sandi?') }}
                 </a>
             @endif
+        </div>
 
-            <x-primary-button class="ms-3">
-                {{ __('Log in') }}
+        <div class="space-y-4">
+            <x-primary-button class="w-full">
+                {{ __('Masuk Ke Akun') }}
             </x-primary-button>
+            
+            <p class="text-center text-sm text-white/40">
+                Belum punya akun? 
+                <a href="{{ route('register') }}" wire:navigate class="text-indigo-400 font-bold hover:underline">Daftar sekarang</a>
+            </p>
         </div>
     </form>
 </div>
