@@ -29,7 +29,7 @@
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 px-4">
             <div class="mb-8">
                 <a href="/" wire:navigate class="flex items-center gap-4">
-                    <img src="{{ asset('images/logo.png') }}" alt="Smart Travel Logo" class="w-16 h-16 object-contain drop-shadow-2xl">
+                    <img src="{{ asset('images/logo.png') }}" alt="Smart Travel Logo" class="w-20 h-20 object-contain drop-shadow-[0_0_20px_rgba(99,102,241,0.6)] transition-transform hover:scale-105">
                     <span class="font-black text-4xl tracking-tight">Smart<span class="text-indigo-400">Travel</span></span>
                 </a>
             </div>

@@ -39,9 +39,9 @@
     <nav class="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#060818]/80 border-b border-white/5">
         <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <a href="/" class="flex items-center gap-3">
-                    <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-10 h-10 object-contain drop-shadow-xl">
-                    <span class="font-black text-xl tracking-tight">Smart<span class="text-indigo-400">Travel</span></span>
+                <a href="/" class="flex items-center gap-4 group">
+                    <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-12 h-12 object-contain drop-shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-transform group-hover:scale-110">
+                    <span class="font-black text-2xl tracking-tight text-white">Smart<span class="text-indigo-400">Travel</span></span>
                 </a>
             </div>
             <div class="flex items-center gap-3">
