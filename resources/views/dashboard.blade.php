@@ -8,9 +8,13 @@
                 <p class="text-sm text-gray-500 font-medium mt-0.5">Smart Weather-Adaptive Trip Planning</p>
             </div>
             <div class="flex items-center space-x-3 bg-white p-2 pr-4 rounded-2xl shadow-sm border border-gray-100">
-                <div class="w-10 h-10 bg-gradient-to-br from-indigo-600 to-blue-500 rounded-xl flex items-center justify-center text-white font-black text-lg">
-                    {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                </div>
+                @if(auth()->user()->avatar)
+                    <img src="{{ Storage::url(auth()->user()->avatar) }}" class="w-10 h-10 rounded-xl object-cover shadow-sm">
+                @else
+                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-600 to-blue-500 rounded-xl flex items-center justify-center text-white font-black text-lg">
+                        {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                    </div>
+                @endif
                 <div>
                     <p class="text-xs text-gray-400 font-bold uppercase tracking-wider">Selamat Datang</p>
                     <p class="text-sm font-bold text-gray-800">{{ auth()->user()->name }}</p>
