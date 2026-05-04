@@ -35,44 +35,48 @@ new class extends Component
         $this->reset('current_password', 'password', 'password_confirmation');
 
         $this->dispatch('password-updated');
+        $this->dispatch('toast', message: '🔐 Password berhasil diperbarui!', type: 'success');
     }
 }; ?>
 
-<section>
+<section class="space-y-6">
     <header>
-        <h2 class="text-lg font-medium text-gray-900">
-            {{ __('Update Password') }}
+        <h2 class="text-xl font-black text-gray-900 dark:text-white tracking-tight">
+            Keamanan Password
         </h2>
-
-        <p class="mt-1 text-sm text-gray-600">
-            {{ __('Ensure your account is using a long, random password to stay secure.') }}
+        <p class="mt-1 text-sm text-gray-500">
+            Pastikan akun Anda menggunakan kata sandi yang panjang dan acak untuk menjaga keamanan.
         </p>
     </header>
 
     <form wire:submit="updatePassword" class="mt-6 space-y-6">
-        <div>
-            <x-input-label for="update_password_current_password" :value="__('Current Password')" />
-            <x-text-input wire:model="current_password" id="update_password_current_password" name="current_password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
+        <div class="space-y-2">
+            <x-input-label for="update_password_current_password" :value="__('Password Saat Ini')" class="font-bold text-gray-700 dark:text-gray-300" />
+            <x-text-input wire:model="current_password" id="update_password_current_password" name="current_password" type="password" class="mt-1 block w-full !bg-gray-50 !border-gray-200 !text-gray-900 focus:!ring-indigo-500 focus:!border-indigo-500 rounded-2xl px-4 py-3" autocomplete="current-password" placeholder="••••••••" />
             <x-input-error :messages="$errors->get('current_password')" class="mt-2" />
         </div>
 
-        <div>
-            <x-input-label for="update_password_password" :value="__('New Password')" />
-            <x-text-input wire:model="password" id="update_password_password" name="password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+                <x-input-label for="update_password_password" :value="__('Password Baru')" class="font-bold text-gray-700 dark:text-gray-300" />
+                <x-text-input wire:model="password" id="update_password_password" name="password" type="password" class="mt-1 block w-full !bg-gray-50 !border-gray-200 !text-gray-900 focus:!ring-indigo-500 focus:!border-indigo-500 rounded-2xl px-4 py-3" autocomplete="new-password" placeholder="Min. 8 karakter" />
+                <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            </div>
+
+            <div class="space-y-2">
+                <x-input-label for="update_password_password_confirmation" :value="__('Konfirmasi Password')" class="font-bold text-gray-700 dark:text-gray-300" />
+                <x-text-input wire:model="password_confirmation" id="update_password_password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full !bg-gray-50 !border-gray-200 !text-gray-900 focus:!ring-indigo-500 focus:!border-indigo-500 rounded-2xl px-4 py-3" autocomplete="new-password" placeholder="Ulangi password baru" />
+                <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+            </div>
         </div>
 
-        <div>
-            <x-input-label for="update_password_password_confirmation" :value="__('Confirm Password')" />
-            <x-text-input wire:model="password_confirmation" id="update_password_password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
-        </div>
+        <div class="flex items-center gap-4 pt-2">
+            <x-primary-button class="!px-8 !py-3 !rounded-2xl !bg-indigo-600 hover:!bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">
+                {{ __('Update Password') }}
+            </x-primary-button>
 
-        <div class="flex items-center gap-4">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
-
-            <x-action-message class="me-3" on="password-updated">
-                {{ __('Saved.') }}
+            <x-action-message class="text-emerald-600 font-bold" on="password-updated">
+                {{ __('Password Berhasil Diubah!') }}
             </x-action-message>
         </div>
     </form>

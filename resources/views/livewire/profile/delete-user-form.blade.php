@@ -25,29 +25,38 @@ new class extends Component
 
 <section class="space-y-6">
     <header>
-        <h2 class="text-lg font-medium text-gray-900">
-            {{ __('Delete Account') }}
+        <h2 class="text-xl font-black text-rose-600 tracking-tight">
+            Hapus Akun
         </h2>
-
-        <p class="mt-1 text-sm text-gray-600">
-            {{ __('Once your account is deleted, all of its resources and data will be permanently deleted. Before deleting your account, please download any data or information that you wish to retain.') }}
+        <p class="mt-1 text-sm text-gray-500">
+            Tindakan ini bersifat permanen. Semua data Anda akan dihapus selamanya.
         </p>
     </header>
 
+    <div class="p-4 bg-rose-50 rounded-2xl border border-rose-100">
+        <p class="text-xs text-rose-700 leading-relaxed font-medium">
+            ⚠️ <strong>Perhatian:</strong> Setelah akun dihapus, tidak ada cara untuk mengembalikan data Anda. Harap berhati-hati.
+        </p>
+    </div>
+
     <x-danger-button
+        class="!rounded-2xl !px-6 !py-3 shadow-lg shadow-rose-100"
         x-data=""
         x-on:click.prevent="$dispatch('open-modal', 'confirm-user-deletion')"
-    >{{ __('Delete Account') }}</x-danger-button>
+    >{{ __('Hapus Akun Sekarang') }}</x-danger-button>
 
     <x-modal name="confirm-user-deletion" :show="$errors->isNotEmpty()" focusable>
-        <form wire:submit="deleteUser" class="p-6">
+        <form wire:submit="deleteUser" class="p-8 bg-white">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 text-2xl">⚠️</div>
+                <div>
+                    <h2 class="text-xl font-black text-gray-900">Konfirmasi Penghapusan</h2>
+                    <p class="text-sm text-gray-500">Apakah Anda yakin ingin menghapus akun ini?</p>
+                </div>
+            </div>
 
-            <h2 class="text-lg font-medium text-gray-900">
-                {{ __('Are you sure you want to delete your account?') }}
-            </h2>
-
-            <p class="mt-1 text-sm text-gray-600">
-                {{ __('Once your account is deleted, all of its resources and data will be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.') }}
+            <p class="text-sm text-gray-600 leading-relaxed">
+                Silakan masukkan password Anda untuk mengonfirmasi bahwa Anda ingin menghapus akun secara permanen.
             </p>
 
             <div class="mt-6">
@@ -58,20 +67,20 @@ new class extends Component
                     id="password"
                     name="password"
                     type="password"
-                    class="mt-1 block w-3/4"
-                    placeholder="{{ __('Password') }}"
+                    class="mt-1 block w-full !bg-gray-50 !border-gray-200 rounded-2xl px-4 py-3"
+                    placeholder="{{ __('Masukkan password Anda untuk konfirmasi') }}"
                 />
 
                 <x-input-error :messages="$errors->get('password')" class="mt-2" />
             </div>
 
-            <div class="mt-6 flex justify-end">
-                <x-secondary-button x-on:click="$dispatch('close')">
-                    {{ __('Cancel') }}
+            <div class="mt-8 flex justify-end gap-3">
+                <x-secondary-button x-on:click="$dispatch('close')" class="!rounded-2xl !px-6">
+                    {{ __('Batal') }}
                 </x-secondary-button>
 
-                <x-danger-button class="ms-3">
-                    {{ __('Delete Account') }}
+                <x-danger-button class="!rounded-2xl !px-6">
+                    {{ __('Ya, Hapus Akun') }}
                 </x-danger-button>
             </div>
         </form>
