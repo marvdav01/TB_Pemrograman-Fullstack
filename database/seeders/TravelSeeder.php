@@ -102,15 +102,29 @@ class TravelSeeder extends Seeder
             ['condition' => 'rainy']
         );
 
+        // Hapus itinerary lama user agar tidak duplikat
+        Itinerary::where('user_id', $user->id)->delete();
+
         // ============================
-        // 5. BUAT ITINERARY CONTOH
+        // 5. BUAT ITINERARY CONTOH (status bervariasi untuk demo)
         // ============================
         $itineraries = [
-            ['destination' => 'Monumen Nasional (Monas)',  'date' => Carbon::tomorrow()->format('Y-m-d')],
-            ['destination' => 'Tangkuban Perahu',          'date' => Carbon::now()->addDays(2)->format('Y-m-d')],
-            ['destination' => 'Pantai Kuta',               'date' => Carbon::now()->addDays(3)->format('Y-m-d')],
-            ['destination' => 'Candi Borobudur',           'date' => Carbon::now()->addDays(4)->format('Y-m-d')],
-            ['destination' => 'Garuda Wisnu Kencana',      'date' => Carbon::now()->addDays(5)->format('Y-m-d')],
+            // Planned (masa depan)
+            ['destination' => 'Monumen Nasional (Monas)', 'date' => Carbon::now()->addDays(2)->format('Y-m-d'), 'status' => 'planned'],
+            ['destination' => 'Tangkuban Perahu',         'date' => Carbon::now()->addDays(5)->format('Y-m-d'), 'status' => 'planned'],
+            ['destination' => 'Pantai Kuta',              'date' => Carbon::now()->addDays(7)->format('Y-m-d'), 'status' => 'planned'],
+
+            // Auto Changed oleh agent (masa depan, belum dikonfirmasi)
+            ['destination' => 'Museum Nasional',          'date' => Carbon::now()->addDays(3)->format('Y-m-d'), 'status' => 'auto_changed'],
+            ['destination' => 'Museum Geologi',           'date' => Carbon::now()->addDays(6)->format('Y-m-d'), 'status' => 'auto_changed'],
+
+            // Overridden (sudah dikonfirmasi user)
+            ['destination' => 'Trans Studio Bandung',     'date' => Carbon::now()->addDays(10)->format('Y-m-d'), 'status' => 'overridden'],
+
+            // Selesai / Completed (tanggal sudah lewat)
+            ['destination' => 'Candi Borobudur',          'date' => Carbon::now()->subDays(3)->format('Y-m-d'), 'status' => 'planned'],
+            ['destination' => 'Garuda Wisnu Kencana',     'date' => Carbon::now()->subDays(7)->format('Y-m-d'), 'status' => 'overridden'],
+            ['destination' => 'Pantai Parangtritis',      'date' => Carbon::now()->subDays(10)->format('Y-m-d'), 'status' => 'planned'],
         ];
 
         foreach ($itineraries as $item) {
@@ -120,7 +134,7 @@ class TravelSeeder extends Seeder
                     'user_id'        => $user->id,
                     'destination_id' => $dest->id,
                     'visit_date'     => $item['date'],
-                    'status'         => 'planned',
+                    'status'         => $item['status'],
                 ]);
             }
         }

@@ -12,7 +12,7 @@ new class extends Component {
     public $itineraries   = [];
     public $userId;
     public $weatherMap    = []; // ['city_id' => 'condition']
-    public $stats         = ['total' => 0, 'planned' => 0, 'changed' => 0];
+    public $stats         = ['total' => 0, 'planned' => 0, 'changed' => 0, 'completed' => 0];
     public $showLogs      = false;
     public $logs          = [];
     
@@ -56,12 +56,16 @@ new class extends Component {
 
         $this->itineraries = $query->orderBy('visit_date', 'asc')->get();
 
-        // Stats are based on ALL itineraries for this user, not just filtered ones?
-        // Let's keep stats reflecting the whole picture for context
-        $all = Itinerary::where('user_id', Auth::id())->get();
-        $this->stats['total']   = $all->count();
-        $this->stats['planned'] = $all->where('status', 'planned')->count();
-        $this->stats['changed'] = $all->where('status', 'auto_changed')->count();
+        // Stats selalu berdasarkan SEMUA itinerary user (tidak terpengaruh filter)
+        $allStats = Itinerary::where('user_id', Auth::id())->get();
+        $today    = today()->format('Y-m-d');
+
+        $this->stats['total']     = $allStats->count();
+        $this->stats['planned']   = $allStats->where('status', 'planned')->count();
+        // Adjusted = diubah agen (pending) ATAU sudah dikonfirmasi user (overridden)
+        $this->stats['changed']   = $allStats->filter(fn($i) => in_array($i->status, ['auto_changed', 'overridden']))->count();
+        // Progress = perjalanan yang tanggalnya sudah lewat (selesai)
+        $this->stats['completed'] = $allStats->filter(fn($i) => $i->visit_date < $today)->count();
 
         // Bangun peta cuaca menggunakan agent yang sama dengan sistem deteksi
         $this->weatherMap = [];
@@ -253,27 +257,43 @@ new class extends Component {
 
     <!-- ====== Stat Cards ====== -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <div class="bg-gradient-to-br from-indigo-600 to-indigo-500 p-5 md:p-6 rounded-3xl text-white shadow-lg shadow-indigo-200/60">
-            <p class="text-indigo-200 text-[10px] md:text-xs font-bold uppercase tracking-widest">Total Trip</p>
-            <p class="text-3xl md:text-4xl font-black mt-1">{{ $stats['total'] }}</p>
+        <div class="bg-gradient-to-br from-indigo-600 to-indigo-500 p-5 md:p-6 rounded-3xl text-white shadow-lg shadow-indigo-200/60 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <p class="text-indigo-200 text-[10px] md:text-xs font-bold uppercase tracking-widest">Total Trip</p>
+                <span class="p-2 bg-indigo-500/50 rounded-xl text-white/80">🗺️</span>
+            </div>
+            <p class="text-3xl md:text-4xl font-black mt-2">{{ $stats['total'] }}</p>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-            <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Planned</p>
-            <p class="text-3xl md:text-4xl font-black text-emerald-600 mt-1">{{ $stats['planned'] }}</p>
+        
+        <div class="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col justify-between hover:border-emerald-200 transition-colors">
+            <div class="flex items-center justify-between">
+                <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Planned</p>
+                <span class="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-emerald-500">📅</span>
+            </div>
+            <p class="text-3xl md:text-4xl font-black text-emerald-600 mt-2">{{ $stats['planned'] }}</p>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-            <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Adjusted</p>
-            <p class="text-3xl md:text-4xl font-black text-amber-500 mt-1">{{ $stats['changed'] }}</p>
+        
+        <div class="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-5 md:p-6 rounded-3xl border border-amber-100 dark:border-amber-800/50 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between">
+                <p class="text-amber-600 dark:text-amber-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Adjusted</p>
+                <span class="p-2 bg-amber-200/50 dark:bg-amber-900/50 rounded-xl text-amber-600 dark:text-amber-400">⚡</span>
+            </div>
+            <p class="text-3xl md:text-4xl font-black text-amber-500 mt-2">{{ $stats['changed'] }}</p>
         </div>
-        <div class="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-            <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Progress</p>
-            <div class="mt-3">
-                @php $progress = $stats['total'] > 0 ? (($stats['total'] - $stats['planned']) / $stats['total']) * 100 : 0; @endphp
-                <div class="flex items-center justify-between mb-1">
-                    <span class="text-[10px] font-bold text-indigo-600">{{ round($progress) }}%</span>
+        
+        <div class="bg-white dark:bg-gray-800 p-5 md:p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col justify-between hover:border-indigo-200 transition-colors">
+            <div class="flex items-center justify-between">
+                <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Progress</p>
+                <span class="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-500">🚀</span>
+            </div>
+            <div class="mt-2">
+                @php $progress = $stats['total'] > 0 ? ($stats['completed'] / $stats['total']) * 100 : 0; @endphp
+                <div class="flex items-baseline gap-1 mb-2">
+                    <p class="text-3xl md:text-4xl font-black text-indigo-600">{{ round($progress) }}</p>
+                    <span class="text-sm font-bold text-indigo-400">%</span>
                 </div>
-                <div class="w-full bg-gray-100 rounded-full h-1.5 dark:bg-gray-700">
-                    <div class="bg-indigo-600 h-1.5 rounded-full transition-all duration-1000" style="width: {{ $progress }}%"></div>
+                <div class="w-full bg-gray-100 rounded-full h-2 dark:bg-gray-700">
+                    <div class="bg-indigo-600 h-2 rounded-full transition-all duration-1000 shadow-sm shadow-indigo-300" style="width: {{ $progress }}%"></div>
                 </div>
             </div>
         </div>
