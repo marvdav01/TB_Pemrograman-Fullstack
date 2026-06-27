@@ -94,13 +94,22 @@ class WeatherAdapterAgent
     /**
      * Ambil kondisi cuaca: coba dari API real, fallback ke simulasi database.
      */
-    protected function resolveWeatherCondition($city, string $date): string
+    public function resolveWeatherCondition($city, string $date): string
     {
         // Coba ambil dari OpenWeatherMap API
         if ($city->openweather_city_name) {
-            $apiCondition = $this->weatherApi->getCurrentCondition($city->openweather_city_name);
-            if ($apiCondition !== null) {
-                return $apiCondition;
+            $today = now()->format('Y-m-d');
+            
+            if ($date === $today) {
+                $apiCondition = $this->weatherApi->getCurrentCondition($city->openweather_city_name);
+                if ($apiCondition !== null) {
+                    return $apiCondition;
+                }
+            } else {
+                $forecast = $this->weatherApi->getForecast($city->openweather_city_name);
+                if (isset($forecast[$date])) {
+                    return $forecast[$date];
+                }
             }
         }
 

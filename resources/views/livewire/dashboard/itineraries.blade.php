@@ -4,6 +4,7 @@ use Livewire\Volt\Component;
 use App\Models\Itinerary;
 use App\Models\ItineraryLog;
 use App\Models\WeatherSimulation;
+use App\Models\Destination;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 
@@ -14,33 +15,67 @@ new class extends Component {
     public $stats         = ['total' => 0, 'planned' => 0, 'changed' => 0];
     public $showLogs      = false;
     public $logs          = [];
-    public $overrideId    = null;  // ID itinerary yang sedang di-override
+    
+    // Search & Filter
+    public $search        = '';
+    public $filterStatus  = 'all';
+
+    // Form Data
+    public $editingId      = null;
+    public $destination_id = '';
+    public $visit_date     = '';
+    public $notes          = '';
+    public $weatherPreview = null;
+    public $showAddModal   = false;
+    public $availableDestinations = [];
 
     public function mount()
     {
         $this->userId = Auth::id();
         $this->loadItineraries();
+        $this->availableDestinations = Destination::with('city')->orderBy('name')->get();
     }
 
     public function loadItineraries()
     {
-        $this->itineraries = Itinerary::with(['destination.city'])
-            ->where('user_id', Auth::id())
-            ->orderBy('visit_date', 'asc')
-            ->get();
+        $query = Itinerary::with(['destination.city'])
+            ->where('user_id', Auth::id());
 
-        $this->stats['total']   = $this->itineraries->count();
-        $this->stats['planned'] = $this->itineraries->where('status', 'planned')->count();
-        $this->stats['changed'] = $this->itineraries->where('status', 'auto_changed')->count();
+        if ($this->search) {
+            $query->whereHas('destination', function($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('city', function($sq) {
+                      $sq->where('name', 'like', '%' . $this->search . '%');
+                  });
+            });
+        }
 
-        // Bangun peta cuaca hari ini dari database simulasi
-        $today = now()->format('Y-m-d');
-        $cityIds = $this->itineraries->pluck('destination.city_id')->unique()->filter();
-        $weathers = WeatherSimulation::whereIn('city_id', $cityIds)->where('date', $today)->get();
-        foreach ($weathers as $w) {
-            $this->weatherMap[$w->city_id] = $w->condition;
+        if ($this->filterStatus !== 'all') {
+            $query->where('status', $this->filterStatus);
+        }
+
+        $this->itineraries = $query->orderBy('visit_date', 'asc')->get();
+
+        // Stats are based on ALL itineraries for this user, not just filtered ones?
+        // Let's keep stats reflecting the whole picture for context
+        $all = Itinerary::where('user_id', Auth::id())->get();
+        $this->stats['total']   = $all->count();
+        $this->stats['planned'] = $all->where('status', 'planned')->count();
+        $this->stats['changed'] = $all->where('status', 'auto_changed')->count();
+
+        // Bangun peta cuaca menggunakan agent yang sama dengan sistem deteksi
+        $this->weatherMap = [];
+        $agent = app(\App\Services\WeatherAdapterAgent::class);
+        foreach ($this->itineraries as $itinerary) {
+            $city = $itinerary->destination?->city;
+            if ($city) {
+                $this->weatherMap[$itinerary->id] = $agent->resolveWeatherCondition($city, $itinerary->visit_date);
+            }
         }
     }
+
+    public function updatedSearch() { $this->loadItineraries(); }
+    public function updatedFilterStatus() { $this->loadItineraries(); }
 
     public function loadLogs()
     {
@@ -57,7 +92,98 @@ new class extends Component {
         $this->showLogs = false;
     }
 
-    // Konfirmasi manual override: user tidak setuju dan ingin reset ke planned
+    public function updatedDestinationId() { $this->fetchWeatherPreview(); }
+    public function updatedVisitDate() { $this->fetchWeatherPreview(); }
+
+    public function fetchWeatherPreview()
+    {
+        if (!$this->destination_id || !$this->visit_date) {
+            $this->weatherPreview = null;
+            return;
+        }
+
+        $dest = Destination::with('city')->find($this->destination_id);
+        if ($dest && $dest->city) {
+            $agent = app(\App\Services\WeatherAdapterAgent::class);
+            $this->weatherPreview = $agent->resolveWeatherCondition($dest->city, $this->visit_date);
+        } else {
+            $this->weatherPreview = 'unknown';
+        }
+    }
+
+    public function openAddModal()
+    {
+        $this->reset(['editingId', 'destination_id', 'notes', 'weatherPreview']);
+        $this->visit_date = now()->format('Y-m-d');
+        $this->dispatch('open-modal', 'add-trip-modal');
+    }
+
+    public function editTrip($id)
+    {
+        $itinerary = Itinerary::where('id', $id)->where('user_id', Auth::id())->first();
+        if ($itinerary) {
+            $this->editingId      = $id;
+            $this->destination_id = $itinerary->destination_id;
+            $this->visit_date     = $itinerary->visit_date;
+            $this->notes          = $itinerary->notes;
+            $this->fetchWeatherPreview();
+            $this->dispatch('open-modal', 'add-trip-modal');
+        }
+    }
+
+    public function closeAddModal()
+    {
+        $this->dispatch('close-modal', 'add-trip-modal');
+        $this->reset(['editingId', 'destination_id', 'visit_date', 'notes', 'weatherPreview']);
+    }
+
+    public function saveTrip()
+    {
+        $this->validate([
+            'destination_id' => 'required|exists:destinations,id',
+            'visit_date'     => 'required|date|after_or_equal:today',
+            'notes'          => 'nullable|string|max:255',
+        ]);
+
+        if ($this->editingId) {
+            $itinerary = Itinerary::where('id', $this->editingId)->where('user_id', Auth::id())->first();
+            if ($itinerary) {
+                $itinerary->update([
+                    'destination_id' => $this->destination_id,
+                    'visit_date'     => $this->visit_date,
+                    'notes'          => $this->notes,
+                    // If manually edited, maybe reset status to planned?
+                    'status'         => 'planned', 
+                ]);
+                $msg = '✅ Perjalanan berhasil diperbarui!';
+            }
+        } else {
+            Itinerary::create([
+                'user_id'        => Auth::id(),
+                'destination_id' => $this->destination_id,
+                'visit_date'     => $this->visit_date,
+                'notes'          => $this->notes,
+                'status'         => 'planned',
+            ]);
+            $msg = '🚀 Perjalanan baru berhasil ditambahkan!';
+        }
+
+        $this->dispatch('close-modal', 'add-trip-modal');
+        $this->loadItineraries();
+        $this->dispatch('toast', message: $msg, type: 'success');
+    }
+
+    public function deleteTrip($id)
+    {
+        $itinerary = Itinerary::where('id', $id)->where('user_id', Auth::id())->first();
+        if ($itinerary) {
+            $itinerary->delete();
+            $this->loadItineraries();
+            $this->dispatch('toast', message: '🗑️ Perjalanan telah dihapus.', type: 'info');
+        }
+    }
+
+    // Konfirmasi manual override
     public function override($itineraryId)
     {
         $itinerary = Itinerary::where('id', $itineraryId)
@@ -154,21 +280,40 @@ new class extends Component {
     </div>
 
     <!-- ====== Kontrol Halaman ====== -->
-    <div class="flex flex-col sm:flex-row gap-3">
-        <button wire:click="loadLogs" wire:loading.attr="disabled" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 transition relative group">
-            <span wire:loading.remove wire:target="loadLogs" class="flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-                Riwayat Perubahan
-            </span>
-            <span wire:loading wire:target="loadLogs" class="flex items-center gap-2">
-                <svg class="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Memuat...
-            </span>
-        </button>
-        <a href="{{ url('/agent') }}" wire:navigate class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-sm font-bold text-white transition shadow-lg shadow-indigo-200">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-            Jalankan Agent Cuaca
-        </a>
+    <div class="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+        <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div class="relative group w-full sm:w-64">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </span>
+                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari destinasi atau kota..." 
+                       class="block w-full pl-10 pr-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-sm">
+            </div>
+            
+            <select wire:model.live="filterStatus" class="block w-full sm:w-44 py-2.5 pl-3 pr-10 border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-sm">
+                <option value="all">Semua Status</option>
+                <option value="planned">Planned</option>
+                <option value="auto_changed">Agent Changed</option>
+                <option value="overridden">Confirmed</option>
+            </select>
+        </div>
+
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <button wire:click="loadLogs" wire:loading.attr="disabled" class="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 transition shadow-sm group">
+                <span wire:loading.remove wire:target="loadLogs" class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400 group-hover:text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    Riwayat
+                </span>
+                <span wire:loading wire:target="loadLogs" class="flex items-center gap-2 text-xs">
+                    <svg class="animate-spin h-3 w-3 text-indigo-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Loading
+                </span>
+            </button>
+            <button wire:click="openAddModal" class="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-2xl text-sm font-bold text-white transition shadow-lg shadow-indigo-200">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                Tambah Trip
+            </button>
+        </div>
     </div>
 
     <!-- ====== Audit Log Panel ====== -->
@@ -234,7 +379,8 @@ new class extends Component {
                     $isOverridden = $itinerary->status === 'overridden';
                     $destType    = $itinerary->destination->type;
                     $city        = $itinerary->destination->city;
-                    $weatherIcon = match($weatherMap[$city?->id] ?? '') {
+                    $weatherCond = $weatherMap[$itinerary->id] ?? '';
+                    $weatherIcon = match($weatherCond) {
                         'rainy'  => '🌧️', 'cloudy' => '⛅', 'sunny' => '☀️', default => '—'
                     };
                 @endphp
@@ -265,7 +411,7 @@ new class extends Component {
                                         {{ $city?->name ?? '—' }}
                                     </span>
                                     <span class="flex items-center gap-1">
-                                        {{ $weatherIcon }} Cuaca: {{ $weatherMap[$city?->id] ?? '—' }}
+                                        {{ $weatherIcon }} Cuaca: {{ ucfirst($weatherCond ?: '—') }}
                                     </span>
                                     @if($itinerary->notes)
                                         <span class="text-xs text-amber-600 italic">{{ $itinerary->notes }}</span>
@@ -275,20 +421,20 @@ new class extends Component {
                         </div>
 
                         <!-- Status & Aksi -->
-                            <div class="flex items-center gap-3 shrink-0">
-                                @if($isChanged)
-                                    <button wire:click="override({{ $itinerary->id }})"
-                                        wire:loading.attr="disabled"
-                                        wire:target="override({{ $itinerary->id }})"
-                                        class="text-xs font-bold text-amber-600 border border-amber-300 px-4 py-2 rounded-xl hover:bg-amber-50 transition flex items-center gap-2">
-                                        <span wire:loading.remove wire:target="override({{ $itinerary->id }})">✅ Terima</span>
-                                        <span wire:loading wire:target="override({{ $itinerary->id }})">
-                                            <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                        </span>
-                                    </button>
-                                    <span class="inline-flex items-center px-4 py-2 rounded-xl text-xs font-black bg-amber-500 text-white uppercase tracking-wider shadow-lg shadow-amber-200/50">
-                                        🌧️ Dialihkan
+                        <div class="flex items-center gap-3 shrink-0">
+                            @if($isChanged)
+                                <button wire:click="override({{ $itinerary->id }})"
+                                    wire:loading.attr="disabled"
+                                    wire:target="override({{ $itinerary->id }})"
+                                    class="text-xs font-bold text-amber-600 border border-amber-300 px-4 py-2 rounded-xl hover:bg-amber-50 transition flex items-center gap-2">
+                                    <span wire:loading.remove wire:target="override({{ $itinerary->id }})">✅ Terima</span>
+                                    <span wire:loading wire:target="override({{ $itinerary->id }})">
+                                        <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     </span>
+                                </button>
+                                <span class="inline-flex items-center px-4 py-2 rounded-xl text-xs font-black bg-amber-500 text-white uppercase tracking-wider shadow-lg shadow-amber-200/50">
+                                    🌧️ Dialihkan
+                                </span>
                             @elseif($isOverridden)
                                 <span class="inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 uppercase tracking-wider">
                                     ✅ Dikonfirmasi
@@ -298,16 +444,157 @@ new class extends Component {
                                     ✓ Planned
                                 </span>
                             @endif
+
+                            <button wire:click="editTrip({{ $itinerary->id }})" 
+                                    class="p-2 text-gray-300 hover:text-indigo-500 transition-colors"
+                                    title="Edit Perjalanan">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                            </button>
+
+                            <button wire:click="deleteTrip({{ $itinerary->id }})" 
+                                    wire:confirm="Apakah Anda yakin ingin menghapus perjalanan ini?"
+                                    class="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                                    title="Hapus Perjalanan">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 </div>
             @empty
-                <div class="flex flex-col items-center justify-center py-16 text-center rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                    <div class="text-5xl mb-4">🗺️</div>
-                    <h3 class="text-xl font-bold text-gray-700 dark:text-white">Belum Ada Itinerary</h3>
-                    <p class="text-gray-400 text-sm mt-2 max-w-xs">Jalankan seeder untuk mendapatkan data contoh, atau tambahkan perjalanan baru.</p>
+                <div class="flex flex-col items-center justify-center py-20 text-center rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 px-6">
+                    <div class="w-20 h-20 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center text-4xl shadow-sm mb-6">
+                        {{ $search ? '🔍' : '🗺️' }}
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-700 dark:text-white">
+                        {{ $search ? 'Tidak ada hasil yang cocok' : 'Belum Ada Itinerary' }}
+                    </h3>
+                    <p class="text-gray-400 text-sm mt-2 max-w-xs mx-auto leading-relaxed">
+                        {{ $search ? "Kami tidak menemukan perjalanan dengan kata kunci '$search'. Coba kata kunci lain." : "Jadwalkan petualangan pertama Anda hari ini!" }}
+                    </p>
+                    @if(!$search)
+                        <button wire:click="openAddModal" class="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
+                            Mulai Rencana Baru
+                        </button>
+                    @endif
                 </div>
             @endforelse
         </div>
     </div>
+
+    <!-- ====== Add Trip Modal ====== -->
+    <x-modal name="add-trip-modal" :show="$showAddModal" on-close="$wire.closeAddModal()" focusable>
+        <form wire:submit="saveTrip" class="p-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                    {{ $editingId ? '✏️ Edit Perjalanan' : '📅 Tambah Perjalanan' }}
+                </h2>
+                <button type="button" wire:click="closeAddModal" class="text-gray-400 hover:text-gray-600 transition text-2xl">&times;</button>
+            </div>
+            
+            <p class="text-sm text-gray-500 dark:text-gray-400 -mt-4 mb-8">
+                Rencanakan petualangan Anda berikutnya. Sistem akan memantau cuaca secara otomatis.
+            </p>
+
+            <div class="space-y-6">
+                <!-- Destinasi -->
+                <div>
+                    <x-input-label for="destination_id" value="Pilih Destinasi" class="text-xs uppercase tracking-widest font-bold text-indigo-600" />
+                    <div class="relative mt-1">
+                        <select id="destination_id" wire:model.live="destination_id" 
+                                class="block w-full border-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-2xl shadow-sm text-sm py-3.5 pl-4 transition appearance-none">
+                            <option value="">-- Pilih Lokasi Tujuan --</option>
+                            @php
+                                $grouped = $availableDestinations->groupBy(fn($d) => $d->city?->name ?? 'Lainnya');
+                            @endphp
+                            @foreach($grouped as $cityName => $dests)
+                                <optgroup label="📍 {{ $cityName }}">
+                                    @foreach($dests as $dest)
+                                        <option value="{{ $dest->id }}">
+                                            {{ $dest->type === 'outdoor' ? '🌄' : '🏛️' }} {{ $dest->name }}
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                            @endforeach
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                    <x-input-error :messages="$errors->get('destination_id')" class="mt-2" />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Tanggal -->
+                    <div>
+                        <x-input-label for="visit_date" value="Tanggal Kunjungan" class="text-xs uppercase tracking-widest font-bold text-indigo-600" />
+                        <x-text-input id="visit_date" type="date" wire:model.live="visit_date" 
+                                     class="mt-1 block w-full py-3.5 rounded-2xl border-gray-200 focus:ring-indigo-500" />
+                        <x-input-error :messages="$errors->get('visit_date')" class="mt-2" />
+                    </div>
+
+                    <!-- Catatan / Tips -->
+                    <div>
+                        <x-input-label for="notes" value="Catatan (Opsional)" class="text-xs uppercase tracking-widest font-bold text-indigo-600" />
+                        <x-text-input id="notes" type="text" wire:model="notes" placeholder="Contoh: Bawa kamera..."
+                                     class="mt-1 block w-full py-3.5 rounded-2xl border-gray-200 focus:ring-indigo-500" />
+                        <x-input-error :messages="$errors->get('notes')" class="mt-2" />
+                    </div>
+                </div>
+
+                <!-- Preview Cuaca Smart -->
+                <div x-show="$wire.weatherPreview" 
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 transform scale-95"
+                     x-transition:enter-end="opacity-100 transform scale-100"
+                     class="overflow-hidden">
+                    @if($weatherPreview)
+                        <div class="p-5 rounded-[2rem] border-2 flex items-center gap-5 transition-all duration-500
+                            {{ $weatherPreview === 'rainy' ? 'bg-blue-50/50 border-blue-200 text-blue-700' : 
+                               ($weatherPreview === 'sunny' ? 'bg-amber-50/50 border-amber-200 text-amber-700' : 'bg-emerald-50/50 border-emerald-200 text-emerald-700') }}">
+                            <div class="w-16 h-16 rounded-2xl bg-white/80 flex items-center justify-center text-4xl shadow-sm">
+                                @if($weatherPreview === 'rainy') 🌧️ @elseif($weatherPreview === 'sunny') ☀️ @elseif($weatherPreview === 'cloudy') ⛅ @else ❓ @endif
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/50 border border-current/20">AI Forecast</span>
+                                    @if($weatherPreview === 'rainy')
+                                        <span class="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-red-100 text-red-600">High Risk</span>
+                                    @endif
+                                </div>
+                                <p class="text-sm font-black leading-tight">
+                                    @if($weatherPreview === 'rainy')
+                                        Hujan Diprediksi. Kami sarankan membawa perlengkapan hujan.
+                                    @elseif($weatherPreview === 'sunny')
+                                        Cerah Berawan! Kondisi terbaik untuk perjalanan ini.
+                                    @elseif($weatherPreview === 'cloudy')
+                                        Berawan Sejuk. Sangat nyaman untuk eksplorasi.
+                                    @elseif($weatherPreview === 'unknown')
+                                        Data cuaca belum tersedia.
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <div class="mt-10 flex flex-col sm:flex-row justify-end gap-3">
+                <x-secondary-button type="button" wire:click="closeAddModal" class="rounded-2xl px-6 py-3.5 border-none bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold justify-center">
+                    Batal
+                </x-secondary-button>
+
+                <x-primary-button class="rounded-2xl px-10 py-3.5 bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-200 justify-center">
+                    <span wire:loading.remove wire:target="saveTrip">Simpan Jadwal</span>
+                    <span wire:loading wire:target="saveTrip" class="flex items-center gap-2">
+                        <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Menyimpan...
+                    </span>
+                </x-primary-button>
+            </div>
+        </form>
+    </x-modal>
 </div>

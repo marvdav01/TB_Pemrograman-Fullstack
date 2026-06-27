@@ -104,7 +104,7 @@ new class extends Component
                     @if ($avatar)
                         <img src="{{ $avatar->temporaryUrl() }}" class="w-full h-full object-cover">
                     @elseif ($currentAvatar)
-                        <img src="{{ Storage::url($currentAvatar) }}" class="w-full h-full object-cover">
+                        <img src="{{ Storage::disk('public')->url($currentAvatar) }}" class="w-full h-full object-cover">
                     @else
                         <div class="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white font-black">
                             {{ strtoupper(substr($name, 0, 1)) }}
